@@ -204,6 +204,21 @@ class OpenProjectClient:
         url = f"/work_packages/{work_package_id}"
         return await self._make_request("PATCH", url, json=updates)
     
+    async def add_work_package_comment(self, work_package_id: int, comment: str) -> Dict[str, Any]:
+        """Add a comment to a work package via the activities endpoint.
+        
+        This creates an activity entry (comment) that appears in the Activity tab.
+        Uses POST /api/v3/work_packages/{id}/activities endpoint.
+        """
+        url = f"/work_packages/{work_package_id}/activities"
+        payload = {
+            "comment": {
+                "raw": comment
+            }
+        }
+        
+        return await self._make_request("POST", url, json=payload)
+    
     async def create_work_package_relation(
         self, 
         from_wp_id: int, 
