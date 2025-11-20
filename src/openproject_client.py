@@ -232,6 +232,128 @@ class OpenProjectClient:
         response = await self._make_request("GET", url)
         return response.get("_embedded", {}).get("elements", [])
     
+    async def search_work_packages(
+        self,
+        project_id: Optional[int] = None,
+        status_ids: Optional[List[int]] = None,
+        assignee_id: Optional[int] = None,
+        type_ids: Optional[List[int]] = None,
+        priority_ids: Optional[List[int]] = None,
+        created_after: Optional[str] = None,
+        created_before: Optional[str] = None,
+        due_after: Optional[str] = None,
+        due_before: Optional[str] = None,
+        subject_contains: Optional[str] = None,
+        custom_filters: Optional[List[Dict]] = None,
+        sort_by: str = "id",
+        sort_order: str = "desc",
+        page_size: int = 100,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """Search work packages with advanced filtering.
+        
+        Supports common filter scenarios via direct parameters plus an escape hatch
+        for complex custom filters. Filters are combined with AND logic.
+        
+        Args:
+            project_id: Filter by project ID
+            status_ids: Filter by status IDs (OR logic)
+            assignee_id: Filter by assignee user ID
+            type_ids: Filter by work package type IDs (OR logic)
+            priority_ids: Filter by priority IDs (OR logic)
+            created_after: Filter work packages created after date (YYYY-MM-DD)
+            created_before: Filter work packages created before date (YYYY-MM-DD)
+            due_after: Filter work packages due after date (YYYY-MM-DD)
+            due_before: Filter work packages due before date (YYYY-MM-DD)
+            subject_contains: Text search in subject field
+            custom_filters: Advanced filters in OpenProject format for complex cases
+            sort_by: Field to sort by (id, subject, updatedAt, createdAt, etc)
+            sort_order: Sort direction (asc or desc)
+            page_size: Number of results per page (max 100)
+            offset: Offset for pagination
+            
+        Returns:
+            Dict with work packages list and metadata
+        """
+        # Build query parameters
+        params = {
+            "pageSize": min(page_size, 100),
+            "offset": offset
+        }
+        
+        # Add sorting with validation
+        allowed_sort_fields = ["id", "subject", "updatedAt", "createdAt", "dueDate", "startDate", "status", "priority", "type"]
+        validated_sort_by = sort_by if sort_by in allowed_sort_fields else "id"
+        sort_direction = "asc" if sort_order == "asc" else "desc"
+        params["sortBy"] = json.dumps([[validated_sort_by, sort_direction]])
+        
+        # Build filters array
+        filter_list = []
+        
+        # Add common filters
+        if project_id:
+            filter_list.append(self._build_filter("project", "=", [project_id]))
+        
+        if status_ids:
+            filter_list.append(self._build_filter("status", "=", status_ids))
+        
+        if assignee_id:
+            filter_list.append(self._build_filter("assignee", "=", [assignee_id]))
+        
+        if type_ids:
+            filter_list.append(self._build_filter("type", "=", type_ids))
+        
+        if priority_ids:
+            filter_list.append(self._build_filter("priority", "=", priority_ids))
+        
+        # Handle date range filters using OpenProject <> d operator
+        # For single-sided filters, use far future (2099-12-31) or past (1900-01-01) dates
+        if created_after and created_before:
+            filter_list.append(self._build_filter("createdAt", "<>d", [created_after, created_before]))
+        elif created_after:
+            filter_list.append(self._build_filter("createdAt", "<>d", [created_after, "2099-12-31"]))
+        elif created_before:
+            filter_list.append(self._build_filter("createdAt", "<>d", ["1900-01-01", created_before]))
+        
+        if due_after and due_before:
+            filter_list.append(self._build_filter("dueDate", "<>d", [due_after, due_before]))
+        elif due_after:
+            filter_list.append(self._build_filter("dueDate", "<>d", [due_after, "2099-12-31"]))
+        elif due_before:
+            filter_list.append(self._build_filter("dueDate", "<>d", ["1900-01-01", due_before]))
+        
+        if subject_contains:
+            filter_list.append(self._build_filter("subject", "~", [subject_contains]))
+        
+        # Add custom filters if provided
+        if custom_filters:
+            filter_list.extend(custom_filters)
+        
+        # Encode filters as JSON if any exist
+        if filter_list:
+            params["filters"] = json.dumps(filter_list)
+        
+        response = await self._make_request("GET", "/work_packages", params=params)
+        return response
+    
+    def _build_filter(self, field: str, operator: str, values: List[Any]) -> Dict:
+        """Helper to build OpenProject filter format.
+        
+        Args:
+            field: Field name (status, assignee, project, etc)
+            operator: Operator (=, !, ~, <, >, <>, etc)
+            values: List of values for the filter
+            
+        Returns:
+            Dict in OpenProject filter format
+        """
+        return {
+            field: {
+                "operator": operator,
+                "values": [str(v) for v in values]
+            }
+        }
+    
     async def create_work_package_relation(
         self, 
         from_wp_id: int, 

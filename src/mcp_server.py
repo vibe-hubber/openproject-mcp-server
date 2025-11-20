@@ -1,7 +1,7 @@
 """FastMCP server for OpenProject integration."""
 import asyncio
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from fastmcp import FastMCP
 from openproject_client import OpenProjectClient, OpenProjectAPIError
 from models import ProjectCreateRequest, WorkPackageCreateRequest, WorkPackageRelationCreateRequest
@@ -481,6 +481,201 @@ async def get_work_packages(project_id: int) -> str:
             "details": e.response_data
         }, indent=2)
     except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": f"Unexpected error: {str(e)}"
+        }, indent=2)
+
+
+@app.tool()
+async def search_work_packages(
+    project_id: Optional[int] = None,
+    status_ids: Optional[List[int]] = None,
+    assignee_id: Optional[int] = None,
+    type_ids: Optional[List[int]] = None,
+    priority_ids: Optional[List[int]] = None,
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
+    due_after: Optional[str] = None,
+    due_before: Optional[str] = None,
+    subject_contains: Optional[str] = None,
+    custom_filters: Optional[str] = None,
+    sort_by: Optional[str] = "id",
+    sort_order: Optional[str] = "desc",
+    page_size: Optional[int] = 100,
+    offset: Optional[int] = 0
+) -> str:
+    """Search and filter work packages with advanced criteria.
+    
+    Provides flexible filtering capabilities for finding specific work packages
+    based on multiple criteria. All filters are combined with AND logic.
+    
+    Common use cases:
+    - Find work packages by status, assignee, or type
+    - Search for overdue or recently created work packages
+    - Filter by text in subject field
+    - Combine multiple criteria for targeted searches
+    - Use custom_filters for complex queries not covered by common parameters
+    
+    Args:
+        project_id: Filter by specific project ID (optional)
+        status_ids: List of status IDs to filter by - matches any (OR logic)
+        assignee_id: Filter by assignee user ID
+        type_ids: List of work package type IDs to filter by - matches any (OR logic)
+        priority_ids: List of priority IDs to filter by - matches any (OR logic)
+        created_after: Show work packages created after this date (YYYY-MM-DD)
+        created_before: Show work packages created before this date (YYYY-MM-DD)
+        due_after: Show work packages due after this date (YYYY-MM-DD)
+        due_before: Show work packages due before this date (YYYY-MM-DD)
+        subject_contains: Text to search for in work package subject
+        custom_filters: JSON string of advanced filters for complex queries.
+                       Format: [{"field": {"operator": "=", "values": ["1"]}}]
+                       Use for cases not covered by common parameters.
+        sort_by: Field to sort results by (id, subject, updatedAt, createdAt, dueDate)
+        sort_order: Sort direction - asc (ascending) or desc (descending)
+        page_size: Number of results per page (default 100, max 100)
+        offset: Offset for pagination (default 0)
+    
+    Returns:
+        JSON string with filtered work packages list and metadata
+    """
+    try:
+        # Build filter summary early for error handling
+        filters_applied = {}
+        if project_id:
+            filters_applied["project_id"] = project_id
+        if status_ids:
+            filters_applied["status_ids"] = status_ids
+        if assignee_id:
+            filters_applied["assignee_id"] = assignee_id
+        if type_ids:
+            filters_applied["type_ids"] = type_ids
+        if priority_ids:
+            filters_applied["priority_ids"] = priority_ids
+        if created_after:
+            filters_applied["created_after"] = created_after
+        if created_before:
+            filters_applied["created_before"] = created_before
+        if due_after:
+            filters_applied["due_after"] = due_after
+        if due_before:
+            filters_applied["due_before"] = due_before
+        if subject_contains:
+            filters_applied["subject_contains"] = subject_contains
+        if custom_filters:
+            filters_applied["custom_filters"] = custom_filters
+        
+        # Validate date formats
+        date_params = [
+            ("created_after", created_after),
+            ("created_before", created_before),
+            ("due_after", due_after),
+            ("due_before", due_before)
+        ]
+        for param_name, param_value in date_params:
+            if param_value and not _is_valid_date_format(param_value):
+                return json.dumps({
+                    "success": False,
+                    "error": f"Invalid date format for {param_name}: {param_value}. Use YYYY-MM-DD format."
+                })
+        
+        # Validate pagination parameters
+        if page_size is not None and (page_size < 1 or page_size > 100):
+            return json.dumps({
+                "success": False,
+                "error": "page_size must be between 1 and 100"
+            })
+        
+        if offset is not None and offset < 0:
+            return json.dumps({
+                "success": False,
+                "error": "offset must be non-negative"
+            })
+        
+        # Parse custom_filters if provided
+        parsed_custom_filters = None
+        if custom_filters:
+            try:
+                parsed_custom_filters = json.loads(custom_filters)
+                if not isinstance(parsed_custom_filters, list):
+                    return json.dumps({
+                        "success": False,
+                        "error": "custom_filters must be a JSON array"
+                    })
+            except json.JSONDecodeError as e:
+                return json.dumps({
+                    "success": False,
+                    "error": f"Invalid JSON in custom_filters: {str(e)}"
+                })
+        
+        # Call search method
+        response = await openproject_client.search_work_packages(
+            project_id=project_id,
+            status_ids=status_ids,
+            assignee_id=assignee_id,
+            type_ids=type_ids,
+            priority_ids=priority_ids,
+            created_after=created_after,
+            created_before=created_before,
+            due_after=due_after,
+            due_before=due_before,
+            subject_contains=subject_contains,
+            custom_filters=parsed_custom_filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            page_size=page_size or 100,
+            offset=offset or 0
+        )
+        
+        work_packages = response.get("_embedded", {}).get("elements", [])
+        total = response.get("total", 0)
+        
+        # Build work package list
+        wp_list = []
+        for wp in work_packages:
+            wp_list.append({
+                "id": wp.get("id"),
+                "subject": wp.get("subject"),
+                "description": wp.get("description", {}).get("raw", "")[:200],  # Truncate
+                "project_id": wp.get("_links", {}).get("project", {}).get("href", "").split("/")[-1],
+                "type": wp.get("_links", {}).get("type", {}).get("title", "Unknown"),
+                "status": wp.get("_links", {}).get("status", {}).get("title", "Unknown"),
+                "priority": wp.get("_links", {}).get("priority", {}).get("title", "Unknown"),
+                "assignee": wp.get("_links", {}).get("assignee", {}).get("title", "Unassigned"),
+                "created_at": wp.get("createdAt"),
+                "updated_at": wp.get("updatedAt"),
+                "start_date": wp.get("startDate"),
+                "due_date": wp.get("dueDate"),
+                "url": f"{settings.openproject_url}/work_packages/{wp.get('id')}"
+            })
+        
+        return json.dumps({
+            "success": True,
+            "message": f"Found {total} work package(s) matching filters",
+            "total": total,
+            "count": len(wp_list),
+            "filters_applied": filters_applied,
+            "sort": {
+                "by": sort_by,
+                "order": sort_order
+            },
+            "pagination": {
+                "page_size": page_size or 100,
+                "offset": offset or 0,
+                "has_more": (offset or 0) + len(wp_list) < total
+            },
+            "work_packages": wp_list
+        }, indent=2)
+        
+    except OpenProjectAPIError as e:
+        log_error(logger, e, {"tool": "search_work_packages", "filters": filters_applied})
+        return json.dumps({
+            "success": False,
+            "error": f"OpenProject API error: {e.message}",
+            "details": e.response_data
+        }, indent=2)
+    except Exception as e:
+        log_error(logger, e, {"tool": "search_work_packages"})
         return json.dumps({
             "success": False,
             "error": f"Unexpected error: {str(e)}"
