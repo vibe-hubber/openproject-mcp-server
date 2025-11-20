@@ -219,6 +219,19 @@ class OpenProjectClient:
         
         return await self._make_request("POST", url, json=payload)
     
+    async def get_work_package_activities(self, work_package_id: int) -> List[Dict[str, Any]]:
+        """Get all activities (comments, status changes, updates) for a work package.
+        
+        Retrieves the complete activity history including user comments, status changes,
+        assignments, field updates, and other events from the Activity tab.
+        
+        Use this to fetch comments or the full change log of a work package.
+        Uses GET /api/v3/work_packages/{id}/activities endpoint.
+        """
+        url = f"/work_packages/{work_package_id}/activities"
+        response = await self._make_request("GET", url)
+        return response.get("_embedded", {}).get("elements", [])
+    
     async def create_work_package_relation(
         self, 
         from_wp_id: int, 
