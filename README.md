@@ -19,6 +19,19 @@ A comprehensive FastMCP-powered server that enables AI assistants like Claude to
 - ✅ **Enhanced error handling** - Detailed validation and error messages
 - ✅ **Performance optimization** - Intelligent caching and pagination
 
+### Phase 2 Advanced Features
+- ✅ **Work package status updates** - Change work package status programmatically
+- ✅ **Activity tracking** - Fetch complete activity history including comments, status changes, and field updates
+- ✅ **Comment management** - Add comments to work packages via Activity tab
+- ✅ **Advanced filtering** - Search work packages with comprehensive filters:
+  - Filter by status, assignee, type, priority, project
+  - Text search in subject field
+  - Date range filtering (created/due dates with after/before)
+  - Pagination with customizable page size and offset
+  - Sort by multiple fields (id, subject, updatedAt, createdAt, dueDate, etc.)
+  - Custom JSON filter escape hatch for complex queries
+  - Filter validation with user-friendly error messages
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -347,6 +360,26 @@ Show me all possible work package statuses
 What priority levels can I use for work packages?
 ```
 
+#### Phase 2 Examples - Status Updates & Comments
+```
+Change work package 42 status to "In progress"
+Update work package 38 and set its status to "Closed"
+Add a comment to work package 42: "Completed the initial analysis and moving to implementation phase"
+Show me all activity history for work package 38 including comments and status changes
+```
+
+#### Phase 2 Examples - Advanced Filtering
+```
+Search for all work packages with status "New" in project 3
+Find all work packages assigned to user ID 5 that are in "In progress" status
+Show me work packages created after 2025-11-18 sorted by updated date
+Find overdue work packages (due before today)
+Search for work packages with "bug" in the subject
+Show me the first 5 work packages in project 1, sorted by priority
+Get work packages in status 1 or 2, assigned to user 5, in project 3
+Find work packages created between 2025-11-01 and 2025-11-30
+```
+
 The AI will use the enhanced MCP tools to create everything and you'll get a proper Gantt chart in OpenProject with proper user assignments!
 
 ## 🛠️ Available Tools
@@ -431,6 +464,65 @@ The OpenProject MCP Server provides comprehensive tools for AI assistants:
 - **Parameters**: None
 - **Returns**: List of priorities (Low, Normal, High, etc.) with configuration
 
+### Phase 2 Advanced Tools (Status, Comments, & Filtering)
+
+#### `update_work_package`
+- **Purpose**: Update an existing work package including status changes
+- **Parameters**:
+  - `work_package_id` (required): Work package ID to update
+  - `subject` (optional): New title
+  - `description` (optional): New description
+  - `start_date` (optional): New start date
+  - `due_date` (optional): New due date
+  - `assignee_id` (optional): New assignee user ID
+  - `status_id` (optional): **New status ID to change work package status**
+  - `estimated_hours` (optional): New time estimate
+- **Returns**: Updated work package details with confirmation
+
+#### `add_work_package_comment`
+- **Purpose**: Add a comment to a work package's Activity tab
+- **Parameters**:
+  - `work_package_id` (required): Work package ID to comment on
+  - `comment` (required): The comment text to add
+- **Returns**: Comment creation confirmation with activity details
+
+#### `get_work_package_activities`
+- **Purpose**: Fetch complete activity history for a work package
+- **Parameters**:
+  - `work_package_id` (required): Work package ID to get activities for
+- **Returns**: List of all activities including:
+  - User comments and notes
+  - Status changes
+  - Assignee changes
+  - Field updates
+  - Attachments
+  - Timestamps and user information
+
+#### `search_work_packages`
+- **Purpose**: Search and filter work packages with advanced criteria
+- **Parameters**:
+  - `project_id` (optional): Filter by specific project
+  - `status_ids` (optional): List of status IDs (OR logic within list)
+  - `assignee_id` (optional): Filter by assignee user ID
+  - `type_ids` (optional): List of work package type IDs (OR logic)
+  - `priority_ids` (optional): List of priority IDs (OR logic)
+  - `created_after` (optional): Work packages created after date (YYYY-MM-DD)
+  - `created_before` (optional): Work packages created before date (YYYY-MM-DD)
+  - `due_after` (optional): Work packages due after date (YYYY-MM-DD)
+  - `due_before` (optional): Work packages due before date (YYYY-MM-DD)
+  - `subject_contains` (optional): Text search in subject field
+  - `custom_filters` (optional): JSON string for complex custom filters
+  - `sort_by` (optional): Field to sort by (id, subject, updatedAt, createdAt, dueDate)
+  - `sort_order` (optional): Sort direction (asc or desc)
+  - `page_size` (optional): Results per page (1-100, default 100)
+  - `offset` (optional): Pagination offset (default 0)
+- **Returns**: Filtered work packages list with:
+  - Total count and current page count
+  - Applied filters summary
+  - Pagination metadata (has_more flag)
+  - Sort information
+  - Work package details
+
 ### Additional Enhanced Tools
 
 #### `get_projects`
@@ -443,17 +535,6 @@ The OpenProject MCP Server provides comprehensive tools for AI assistants:
 - **Parameters**:
   - `project_id` (required): Project ID to get work packages from
 - **Returns**: List of work packages with full details
-
-#### `update_work_package`
-- **Purpose**: Update an existing work package
-- **Parameters**:
-  - `work_package_id` (required): Work package ID to update
-  - `subject` (optional): New title
-  - `description` (optional): New description
-  - `start_date` (optional): New start date
-  - `due_date` (optional): New due date
-  - `assignee_id` (optional): New assignee
-  - `estimated_hours` (optional): New time estimate
 
 #### `get_project_summary`
 - **Purpose**: Get comprehensive project overview
@@ -629,6 +710,20 @@ This comprehensive OpenProject MCP Server implementation provides:
 - ✅ Advanced request validation with business rules
 - ✅ Comprehensive test suite with 95%+ coverage
 
+**✅ Phase 2 Advanced Features:**
+- ✅ Work package status updates via `update_work_package` tool
+- ✅ Comment management via `add_work_package_comment` tool
+- ✅ Activity history retrieval via `get_work_package_activities` tool
+- ✅ Advanced filtering via `search_work_packages` tool with:
+  - Multi-criteria filtering (status, assignee, type, priority, project)
+  - Date range filtering with flexible operators
+  - Text search capabilities
+  - Pagination and sorting
+  - Custom JSON filter support
+  - Input validation and error handling
+- ✅ Comprehensive filter validation with user-friendly error messages
+- ✅ OpenProject HAL+JSON date operator support (<>d for ranges)
+
 **✅ Advanced Features:**
 - ✅ MCP Resources for data browsing
 - ✅ MCP Prompts for AI-assisted project management
@@ -647,12 +742,14 @@ This comprehensive OpenProject MCP Server implementation provides:
 
 ## 🚀 Next Steps
 
-### Phase 2 Roadmap (Future Development)
+### Phase 3 Roadmap (Future Development)
 1. **Project membership management** - Add/remove team members programmatically
 2. **Time tracking integration** - Create and manage time entries
 3. **Categories and versions** - Enhanced project organization
 4. **File attachments** - Document and file management
 5. **Custom fields support** - Instance-specific field handling
+6. **Bulk operations** - Mass update and create operations
+7. **Advanced reporting** - Custom reports and analytics
 
 ### Immediate Next Steps
 1. **Deploy with Docker** for production use
@@ -682,5 +779,7 @@ This comprehensive OpenProject MCP Server implementation provides:
 **✅ MVP Success**: Create projects, work packages, and dependencies through Claude, see proper Gantt charts in OpenProject
 
 **✅ Phase 1 Success**: Use email-based assignment, dynamic configuration, and enhanced error handling - all implemented and tested!
+
+**✅ Phase 2 Success**: Update work package statuses, add comments, retrieve activity history, and search with advanced filters - all implemented and tested!
 
 **🎯 Production Ready**: Deploy with Docker, integrate with Claude Desktop, use for real project management workflows
