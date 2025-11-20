@@ -656,6 +656,77 @@ async def add_work_package_comment(work_package_id: int, comment: str) -> str:
 
 
 @app.tool()
+async def get_work_package_activities(work_package_id: int) -> str:
+    """Get all activities for a work package, including comments, status changes, and other updates.
+    
+    Activities are displayed in the OpenProject Activity tab and include:
+    - User comments and notes
+    - Status changes
+    - Assignee changes
+    - Field updates
+    - Attachments
+    
+    Use this tool when users ask for:
+    - Comments on a work package
+    - Activity history
+    - Change log
+    - Who said what
+    - What happened to a work package
+    
+    Args:
+        work_package_id: ID of the work package to get activities for
+    
+    Returns:
+        JSON string with list of activities including comments, changes, and metadata
+    """
+    try:
+        if work_package_id <= 0:
+            return json.dumps({
+                "success": False,
+                "error": "Work package ID must be a positive integer"
+            })
+        
+        activities = await openproject_client.get_work_package_activities(work_package_id)
+        
+        activity_list = []
+        for activity in activities:
+            # Extract user information
+            user_link = activity.get("_links", {}).get("user", {})
+            user_name = user_link.get("title", "Unknown")
+            
+            # Extract activity details
+            activity_data = {
+                "id": activity.get("id"),
+                "version": activity.get("version"),
+                "comment": activity.get("comment", {}).get("raw", ""),
+                "details": activity.get("details", []),
+                "created_at": activity.get("createdAt"),
+                "user": user_name
+            }
+            activity_list.append(activity_data)
+        
+        return json.dumps({
+            "success": True,
+            "message": f"Found {len(activity_list)} activities for work package {work_package_id}",
+            "work_package_id": work_package_id,
+            "activities": activity_list,
+            "url": f"{settings.openproject_url}/work_packages/{work_package_id}/activity"
+        }, indent=2)
+        
+    except OpenProjectAPIError as e:
+        return json.dumps({
+            "success": False,
+            "error": f"OpenProject API error: {e.message}",
+            "details": e.response_data
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": f"Unexpected error: {str(e)}"
+        }, indent=2)
+
+
+@app.tool()
 async def get_users(email_filter: Optional[str] = None) -> str:
     """Get list of users, optionally filtered by email.
     
