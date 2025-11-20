@@ -52,7 +52,7 @@ async def health_check() -> str:
                 "openproject_url": settings.openproject_url
             }
         
-        log_tool_execution(logger, "health_check", {}, result)
+        log_tool_execution(logger, "health_check", True, result=result)
         return json.dumps(result, indent=2)
         
     except Exception as e:
@@ -583,6 +583,56 @@ async def update_work_package(
                 "due_date": result.get("dueDate"),
                 "status": result.get("_links", {}).get("status", {}).get("title", "Unknown"),
                 "url": f"{settings.openproject_url}/work_packages/{result.get('id')}"
+            }
+        }, indent=2)
+        
+    except OpenProjectAPIError as e:
+        return json.dumps({
+            "success": False,
+            "error": f"OpenProject API error: {e.message}",
+            "details": e.response_data
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": f"Unexpected error: {str(e)}"
+        }, indent=2)
+
+
+@app.tool()
+async def add_work_package_comment(work_package_id: int, comment: str) -> str:
+    """Add a comment to a work package.
+    
+    Args:
+        work_package_id: ID of the work package
+        comment: The comment text to add
+    
+    Returns:
+        JSON string with update result
+    """
+    try:
+        if work_package_id <= 0:
+            return json.dumps({
+                "success": False,
+                "error": "Work package ID must be a positive integer"
+            })
+            
+        if not comment or not comment.strip():
+            return json.dumps({
+                "success": False,
+                "error": "Comment cannot be empty"
+            })
+        
+        # Use the dedicated client method
+        result = await openproject_client.add_work_package_comment(work_package_id, comment.strip())
+        
+        return json.dumps({
+            "success": True,
+            "message": f"Comment added to work package {work_package_id}",
+            "work_package": {
+                "id": result.get("id"),
+                "subject": result.get("subject"),
+                "url": f"{settings.openproject_url}/work_packages/{result.get('id')}/activity"
             }
         }, indent=2)
         

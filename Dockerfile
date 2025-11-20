@@ -48,15 +48,9 @@ RUN mkdir -p /app/logs /app/data && \
 # Switch to non-root user
 USER mcp
 
-# Health check
+# Health check - use the health check script
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python3 -c "import asyncio; import sys; sys.path.insert(0, '/app/src'); from openproject_client import OpenProjectClient; \
-    async def check(): \
-        client = OpenProjectClient(); \
-        result = await client.test_connection(); \
-        await client.close(); \
-        exit(0 if result['success'] else 1); \
-    asyncio.run(check())" || exit 1
+    CMD python3 /app/scripts/health_check_test.py || exit 1
 
 # Expose ports for MCP and status endpoints
 EXPOSE 8080 8081
