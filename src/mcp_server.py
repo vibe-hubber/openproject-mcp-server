@@ -495,6 +495,7 @@ async def update_work_package(
     start_date: Optional[str] = None,
     due_date: Optional[str] = None,
     assignee_id: Optional[int] = None,
+    status_id: Optional[int] = None,
     estimated_hours: Optional[float] = None
 ) -> str:
     """Update an existing work package.
@@ -506,6 +507,7 @@ async def update_work_package(
         start_date: New start date in YYYY-MM-DD format (optional)
         due_date: New due date in YYYY-MM-DD format (optional)
         assignee_id: User ID to assign work package to (optional)
+        status_id: Status ID to change work package status (optional)
         estimated_hours: New estimated hours (optional)
     
     Returns:
@@ -559,6 +561,10 @@ async def update_work_package(
         if assignee_id:
             updates["_links"] = updates.get("_links", {})
             updates["_links"]["assignee"] = {"href": f"/api/v3/users/{assignee_id}"}
+        
+        if status_id:
+            updates["_links"] = updates.get("_links", {})
+            updates["_links"]["status"] = {"href": f"/api/v3/statuses/{status_id}"}
         
         if estimated_hours:
             updates["estimatedTime"] = f"PT{estimated_hours}H"
