@@ -77,7 +77,8 @@ class OpenProjectClient:
             headers={
                 "Authorization": f"Basic {auth_string}",
                 "Content-Type": "application/json",
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "Host": settings.openproject_host_header or "localhost"
             }
         )
     
