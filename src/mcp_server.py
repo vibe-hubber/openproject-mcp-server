@@ -66,12 +66,13 @@ async def health_check() -> str:
 
 
 @app.tool()
-async def create_project(name: str, description: str = "") -> str:
+async def create_project(name: str, description: str = "", status: str = "active") -> str:
     """Create a new project in OpenProject.
     
     Args:
         name: Project name (required)
         description: Project description (optional)
+        status: Project status (default: active)
     
     Returns:
         JSON string with project creation result
@@ -87,7 +88,8 @@ async def create_project(name: str, description: str = "") -> str:
         # Create project request
         project_request = ProjectCreateRequest(
             name=name.strip(),
-            description=description.strip() if description else ""
+            description=description.strip() if description else "",
+            status=status
         )
         
         # Call OpenProject API
@@ -123,6 +125,7 @@ async def create_work_package(
     project_id: int,
     subject: str,
     description: str = "",
+    type_id: int = 1,
     start_date: Optional[str] = None,
     due_date: Optional[str] = None,
     parent_id: Optional[int] = None,
@@ -135,6 +138,7 @@ async def create_work_package(
         project_id: ID of the project to create work package in
         subject: Work package title/subject
         description: Detailed description (optional)
+        type_id: Work package type ID (default: 1 = Task)
         start_date: Start date in YYYY-MM-DD format (optional)
         due_date: Due date in YYYY-MM-DD format (optional)
         parent_id: Parent work package ID for hierarchy (optional)
@@ -176,6 +180,7 @@ async def create_work_package(
             project_id=project_id,
             subject=subject.strip(),
             description=description.strip() if description else "",
+            type_id=type_id,
             start_date=start_date,
             due_date=due_date,
             parent_id=parent_id,
@@ -687,6 +692,7 @@ async def update_work_package(
     work_package_id: int,
     subject: Optional[str] = None,
     description: Optional[str] = None,
+    type_id: Optional[int] = None,
     start_date: Optional[str] = None,
     due_date: Optional[str] = None,
     assignee_id: Optional[int] = None,
@@ -699,6 +705,7 @@ async def update_work_package(
         work_package_id: ID of the work package to update
         subject: New subject/title (optional)
         description: New description (optional)
+        type_id: New type ID (optional)
         start_date: New start date in YYYY-MM-DD format (optional)
         due_date: New due date in YYYY-MM-DD format (optional)
         assignee_id: User ID to assign work package to (optional)
@@ -736,6 +743,10 @@ async def update_work_package(
         
         if description is not None:
             updates["description"] = {"raw": description.strip()}
+            
+        if type_id:
+            updates["_links"] = updates.get("_links", {})
+            updates["_links"]["type"] = {"href": f"/api/v3/types/{type_id}"}
         
         if start_date:
             if not _is_valid_date_format(start_date):
