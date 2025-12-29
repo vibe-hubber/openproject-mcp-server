@@ -39,7 +39,7 @@ services:
     
     # Health check
     healthcheck:
-      test: ["CMD", "python3", "-c", "import asyncio; import sys; sys.path.insert(0, '/app/src'); from openproject_client import OpenProjectClient; async def check(): client = OpenProjectClient(); result = await client.test_connection(); await client.close(); exit(0 if result['success'] else 1); asyncio.run(check())"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -48,7 +48,6 @@ services:
     # Network configuration
     networks:
       - mcp-network
-      - openproject_frontend
     
     # Allow container to access host services
     extra_hosts:
@@ -72,8 +71,6 @@ services:
 networks:
   mcp-network:
     driver: bridge
-  openproject_frontend:
-    external: true
 
 volumes:
   openproject_data:
